@@ -1,0 +1,23 @@
+name: Basic Python Test
+
+on:
+  push:
+  workflow_dispatch{}:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4 #means download repo code into runner
+      
+      - name: Python setup
+        uses: actions/setup-python@v5
+        with: 
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt #installs flask
+      
+      - name: Check app syntax
+        run: python -m py_compile app.py #checks that file can compile as valid python
