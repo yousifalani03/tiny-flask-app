@@ -27,3 +27,42 @@ jobs:
 
       - name: Build Docker Image
         run: docker build -t tiny-flask-app:test . #-t means tag image and tag is :test, "." means the build context is the current folder
+
+
+  # Future CD steps would look something like this:
+      # 1. Configure AWS credentials
+      # 2. Log in to Amazon ECR
+      # 3. Build + tag image with ECR image URI
+      # 4. Push image to ECR
+      # 5. Update/render ECS task definition with new image URI
+      # 6. Deploy updated task definition to ECS service
+      # 7. ECS service starts new tasks, and ECS pulls the image from ECR
+
+
+
+# Pseudo-example, not meant for you to run yet
+
+# build image locally on the GitHub runner
+#- name: Build Docker image
+  #run: docker build -t my-app:${{ github.sha }} .
+
+#- name: Configure AWS credentials
+  # uses: aws-actions/configure-aws-credentials@...
+  # lets GitHub Actions talk to AWS
+
+#- name: Log in to ECR
+  # uses: aws-actions/amazon-ecr-login@...
+  # lets docker push to your ECR registry
+
+#- name: Build and push image
+  # run: docker build ...
+  # run: docker tag ...
+  # run: docker push ...
+
+#- name: Render task definition
+  # uses: aws-actions/amazon-ecs-render-task-definition@...
+  # inserts the new image URI into task-definition.json
+
+#- name: Deploy to ECS
+  # uses: aws-actions/amazon-ecs-deploy-task-definition@...
+  # registers task definition + updates ECS service
