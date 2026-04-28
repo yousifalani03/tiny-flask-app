@@ -16,8 +16,14 @@ jobs:
         with: 
           python-version: '3.11'
 
+      - name: Show Python version
+        run: python --version
+
       - name: Install Dependencies
         run: pip install -r requirements.txt #installs flask
       
       - name: Check app syntax
         run: python -m py_compile app.py #checks that file can compile as valid python
+
+      - name: Build Docker Image
+        run: docker build -t tiny-flask-app:test . #-t means tag image and tag is :test, "." means the build context is the current folder
