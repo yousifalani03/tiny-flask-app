@@ -1,0 +1,49 @@
+name: Translated BB pipeline 
+
+on: 
+  push:
+    branches:
+      main
+      develop
+  workflow_dispatch:
+
+jobs:
+  Setup_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - name: set up python
+        uses: actions/setup-python@v5
+        with: 
+          python-version: '3.11'
+        
+      - name: Setup environment and test
+        run: |
+          export APP_ENV=dev
+          pip install -r requirements.txt
+          python -m py_compile app.py
+          mkdir -p dist
+          cp app.py dist/app.py
+          cp requirements.txt dist/requirements.txt
+        #idk what to do with artifact
+  
+  Build image docker:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Export and build image
+          run: export IMAGE_TAG=dev-$vars 
+          run: docker build -t tiny-flask-app:$IMAGE_TAG
+          run: echo "Built Image tiny-flask-app:$IMAGE_TAG"
+
+  Deploy to Stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Stage confirmation
+        run: echo "Deploying build $github.run_number to staging"
+        run: ls -R dist
+
+
+      

@@ -1,0 +1,213 @@
+name: Translated Complex Bitbucket Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Release version to deploy"
+        required: true
+        default: "v1"
+
+jobs:
+  package_app:
+    name: Package app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set APP_ENV
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            echo "APP_ENV=dev" >> $GITHUB_ENV
+          elif [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "APP_ENV=prod" >> $GITHUB_ENV
+          fi
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check app syntax
+        run: python -m py_compile app.py
+
+      - name: Create dist package
+        run: |
+          mkdir -p dist
+          cp app.py dist/app.py
+          cp requirements.txt dist/requirements.txt
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  build_image:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    needs: package_app
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Set image tag
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            echo "IMAGE_TAG=dev-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          elif [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "IMAGE_TAG=prod-${GITHUB_RUN_NUMBER}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Docker image
+        run: docker build -t tiny-flask-app:${IMAGE_TAG} .
+
+      - name: Show built image tag
+        run: echo "Built image tiny-flask-app:${IMAGE_TAG}"
+
+  deploy_staging:
+    name: Deploy to staging
+    runs-on: ubuntu-latest
+    needs: build_image
+    if: github.ref_name == 'main'
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Deploy to staging placeholder
+        run: |
+          echo "Deploying build ${GITHUB_RUN_NUMBER} to staging"
+          ls -R dist
+
+  deploy_production:
+    name: Manual production deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Production deploy placeholder
+        run: |
+          echo "Deploying release ${{ inputs.release_version }} to production"
+
+
+
+
+# =========================================================
+# Session 7 Notes / Takeaways
+#
+# This workflow is a GitHub Actions translation of a more
+# complex Bitbucket pipeline.
+#
+# Main idea:
+# - Pushes to develop and main trigger the workflow
+# - develop builds a dev-style image
+# - main builds a prod-style image and can continue to staging
+# - manual workflow_dispatch is used for production deploy input
+#
+# What each job does:
+#
+# 1. package_app
+# - checks out the repo
+# - sets up Python
+# - installs dependencies
+# - runs a syntax check
+# - creates a dist/ folder
+# - uploads dist/ as an artifact
+#
+# 2. build_image
+# - waits for package_app using "needs"
+# - downloads the dist artifact
+# - sets an image tag based on branch + GitHub run number
+# - develop -> dev-${GITHUB_RUN_NUMBER}
+# - main    -> prod-${GITHUB_RUN_NUMBER}
+# - builds the Docker image
+#
+# 3. deploy_staging
+# - only runs on main because of:
+#   if: github.ref_name == 'main'
+# - this is the GitHub Actions version of branch-specific
+#   deploy logic
+# - right now it is only a placeholder echo step
+#
+# 4. deploy_production
+# - only runs when the workflow is started manually
+#   with workflow_dispatch
+# - uses an input called release_version
+# - this is the GitHub Actions version of a Bitbucket
+#   custom/manual pipeline with variables
+#
+# Important concept mappings from Bitbucket -> GitHub Actions:
+#
+# - bitbucket-pipelines.yml
+#   -> .github/workflows/<file>.yml
+#
+# - branches: develop / main
+#   -> on.push.branches + if conditions
+#
+# - step.script
+#   -> run commands inside GitHub Actions steps
+#
+# - artifacts: dist/**
+#   -> upload-artifact / download-artifact actions
+#
+# - BITBUCKET_BUILD_NUMBER
+#   -> GITHUB_RUN_NUMBER
+#
+# - trigger: manual
+#   -> workflow_dispatch
+#
+# - custom pipeline variable (RELEASE_VERSION)
+#   -> workflow_dispatch input (release_version)
+#
+# Key takeaways:
+# - shell commands usually translate pretty easily
+# - triggers, artifacts, manual deploys, and env/build vars
+#   are the harder migration parts
+# - "needs" is important when splitting work across jobs
+# - artifacts are how build output is passed between jobs
+# - GitHub Actions and Bitbucket Pipelines do similar work,
+#   but the structure and syntax are different
+#
+# Develop push flow:
+# push to develop
+# -> package_app
+# -> build_image
+# -> stop
+#
+# Main push flow:
+# push to main
+# -> package_app
+# -> build_image
+# -> deploy_staging
+#
+# Manual production flow:
+# manually run workflow
+# -> deploy_production with release_version input
+#
+# This workflow is for learning/migration practice.
+# It does NOT yet:
+# - push images to ECR
+# - update ECS task definitions
+# - deploy to ECS/Fargate for real
+# =========================================================
