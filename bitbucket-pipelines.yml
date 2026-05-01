@@ -1,0 +1,62 @@
+image: python:3.11
+
+pipelines:
+  branches:
+    develop:
+      - step:
+          name: Install, test, and package
+          script:
+            - export APP_ENV=dev
+            - pip install -r requirements.txt
+            - python -m py_compile app.py
+            - mkdir -p dist
+            - cp app.py dist/app.py
+            - cp requirements.txt dist/requirements.txt
+          artifacts:
+            - dist/**
+
+      - step:
+          name: Build Docker image for develop
+          script:
+            - export IMAGE_TAG=dev-$BITBUCKET_BUILD_NUMBER
+            - docker build -t tiny-flask-app:$IMAGE_TAG .
+            - echo "Built image tiny-flask-app:$IMAGE_TAG"
+
+    main:
+      - step:
+          name: Install, test, and package
+          script:
+            - export APP_ENV=prod
+            - pip install -r requirements.txt
+            - python -m py_compile app.py
+            - mkdir -p dist
+            - cp app.py dist/app.py
+            - cp requirements.txt dist/requirements.txt
+          artifacts:
+            - dist/**
+
+      - step:
+          name: Build production Docker image
+          script:
+            - export IMAGE_TAG=prod-$BITBUCKET_BUILD_NUMBER
+            - docker build -t tiny-flask-app:$IMAGE_TAG .
+            - echo "Built image tiny-flask-app:$IMAGE_TAG"
+
+      - step:
+          name: Deploy to staging
+          deployment: staging
+          trigger: manual
+          script:
+            - echo "Deploying build $BITBUCKET_BUILD_NUMBER to staging"
+            - ls -R dist
+
+  custom:
+    deploy-production:
+      - variables:
+          - name: RELEASE_VERSION
+            default: "v1"
+      - step:
+          name: Manual production deploy
+          deployment: production
+          script:
+            - echo "Deploying release $RELEASE_VERSION to production"
